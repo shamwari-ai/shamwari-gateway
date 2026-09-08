@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, "claude/**"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # These tests are what cover the two rules that must not be broken:
+  # personal scope never resolves to a cloud destination, and the premium
+  # tier stays licenseClass 'restricted'.
+  ci:
+    uses: shamwari-ai/.github/.github/workflows/reusable-ci-node-npm.yml@main
+    with:
+      typecheck-script: typecheck
+      test-script: test
+
+  secrets:
+    uses: shamwari-ai/.github/.github/workflows/reusable-gitleaks.yml@main
+
+  codeql:
+    uses: shamwari-ai/.github/.github/workflows/reusable-codeql.yml@main
+    with:
+      languages: '["javascript-typescript"]'

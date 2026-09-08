@@ -1,0 +1,13 @@
+name: PR title lint
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    uses: shamwari-ai/.github/.github/workflows/reusable-pr-title-lint.yml@main
