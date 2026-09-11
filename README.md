@@ -12,11 +12,11 @@ The edge API gateway. TypeScript on Cloudflare Workers.
 
 Three routes, plus a queue consumer and a cron handler:
 
-| Route | |
-|---|---|
-| `GET /health` | liveness |
+| Route                       |           |
+| --------------------------- | --------- |
+| `GET /health`               | liveness  |
 | `POST /v1/chat/completions` | inference |
-| `POST /v1/ground/context` | grounding |
+| `POST /v1/ground/context`   | grounding |
 
 None of them render a page — which is why this repo uses **Hono** and not
 Astro. Hono is Workers-native, adds no meaningful cold-start cost for three
