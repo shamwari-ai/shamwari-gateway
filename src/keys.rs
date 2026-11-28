@@ -66,8 +66,6 @@ pub const SHAMWARI_KEY_TYPE: &str = "shamwari";
 const VERIFY_TIMEOUT_MS: u32 = 800;
 const ROLLUP_TIMEOUT_MS: u32 = 800;
 const METER_TIMEOUT_MS: u32 = 2000;
-/// `CORE_TIMEOUT_MS` in `core.ts`.
-const CORE_TIMEOUT_MS: u32 = 4000;
 
 /// Fields a usage event may carry to the Servers API. An allowlist, so a field
 /// added to the event later (or a content field added by mistake) does not
@@ -183,18 +181,16 @@ fn str_field(r: &Map<String, Value>, k: &str) -> String {
 }
 
 enum CoreFailure {
-    /// Core answered with this status and body.
+    /// Core answered with this status and body (or was skipped while Core's
+    /// breaker is open: a 503).
     Status(u16, String),
     /// No answer: a network error, a timeout, an unreadable body, or no `CORE_URL`.
     Other(String),
 }
 
-/// A call to Shamwari Core, as `core()` in `core.ts` makes it (bearer token,
-/// JSON body, `CORE_TIMEOUT_MS`).
-///
-/// `core.rs` is ported separately; once it lands this should call it, so the
-/// key path shares its breaker. Until then a call here always goes out: with
-/// Core down it ends `Unavailable` either way, only without the skip.
+/// A call to Shamwari Core through [`crate::core`], so the key path shares
+/// Core's breaker: while Core is down a key check fails at once as
+/// `Unavailable` instead of waiting out the timeout on every request.
 async fn core_call<P: Platform>(
     p: &P,
     cfg: &Config,
@@ -203,33 +199,15 @@ async fn core_call<P: Platform>(
     body: Option<&Value>,
 ) -> Result<Value, CoreFailure> {
     // TypeScript would fetch `undefined/...`, which throws before any request.
-    let Some(base) = cfg.core_url.as_deref() else {
+    if cfg.core_url.is_none() {
         return Err(CoreFailure::Other("CORE_URL is not set".into()));
-    };
-    let mut headers = vec![(
-        "Authorization".to_owned(),
-        format!(
-            "Bearer {}",
-            cfg.shamwari_core_token.as_deref().unwrap_or_default()
-        ),
-    )];
-    if body.is_some() {
-        headers.push(("Content-Type".to_owned(), "application/json".to_owned()));
     }
-    let res = p
-        .fetch(HttpRequest {
-            method: method.to_owned(),
-            url: format!("{base}{path}"),
-            headers,
-            body: body.map(Value::to_string),
-            timeout_ms: Some(CORE_TIMEOUT_MS),
-        })
+    crate::core::core(p, cfg, path, Some(method), body)
         .await
-        .map_err(CoreFailure::Other)?;
-    if !res.ok() {
-        return Err(CoreFailure::Status(res.status, res.body));
-    }
-    serde_json::from_str(&res.body).map_err(|e| CoreFailure::Other(e.to_string()))
+        .map_err(|e| match e {
+            crate::core::CoreFailure::Status(e) => CoreFailure::Status(e.status, e.detail),
+            crate::core::CoreFailure::Threw(m) => CoreFailure::Other(m),
+        })
 }
 
 /// Who verifies keys and answers quota rollups.
@@ -630,7 +608,7 @@ mod tests {
             ["https://core.example/auth/verify"]
         );
         assert_eq!(header(&reqs[0], "authorization"), Some("Bearer core-token"));
-        assert_eq!(reqs[0].timeout_ms, Some(CORE_TIMEOUT_MS));
+        assert_eq!(reqs[0].timeout_ms, Some(crate::core::CORE_TIMEOUT_MS));
         let body: Value = serde_json::from_str(reqs[0].body.as_deref().unwrap()).unwrap();
         assert_eq!(
             body,

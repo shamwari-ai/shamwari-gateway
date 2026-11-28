@@ -4,12 +4,11 @@
 //! or Ground in Mongo through the Nyuchi API for a signed-in person, and our
 //! own sites read live) and builds the system prompt that cites them.
 //!
-//! `POST /v1/ground/context` still answers 501: its handler is wired with
-//! `admit` in `gateway.rs`.
+//! `POST /v1/ground/context` is wired with `admit` in
+//! [`crate::gateway::handle_ground_context`].
 
 use crate::config::Config;
 use crate::ground_store::{ground_search, ground_store_configured, GroundQuery};
-use crate::http::{Req, Resp};
 use crate::lang::js;
 use crate::own_sites::{rank_own_sites, search_own_sites};
 use crate::platform::Platform;
@@ -17,10 +16,6 @@ use crate::scope::{provider_scope, Destination, ScopeRefusal, ScopeResolution};
 use crate::types::{GroundChunk, Message, Role, Scope};
 use serde_json::{json, Map, Value};
 use std::future::Future;
-
-pub async fn handle_context<P: Platform>(_p: &P, _cfg: &Config, _req: &Req) -> Resp {
-    crate::router::not_ported("POST /v1/ground/context")
-}
 
 /// Shamwari's standing instructions to the model (owner review, 2026-11-23).
 ///
@@ -901,12 +896,5 @@ mod tests {
         assert!(BASE.contains(
             "Never invent an Act, section number, statutory instrument, fee, rate or date"
         ));
-    }
-
-    #[test]
-    fn handle_context_is_still_the_501_stub() {
-        let p = FakePlatform::new();
-        let r = block_on(handle_context(&p, &env(), &Req::default()));
-        assert_eq!(r.status, 501);
     }
 }

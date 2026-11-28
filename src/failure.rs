@@ -12,10 +12,10 @@
 //! at most [`REASONS_MAX`] entries. The repository and the API are public; a
 //! reason says what failed, never a credential or an internal address.
 //!
-//! Also here, because every other port of agent C logs and measures text the
-//! way JavaScript does: [`console`] (the Worker log) and [`js_len`] /
-//! [`js_prefix`] (string lengths in UTF-16 code units, as `.length` counts).
+//! Also here: [`console`], the Worker log. String lengths in UTF-16 code
+//! units, as `.length` counts them, are [`crate::lang::js`].
 
+use crate::lang::js;
 use regex_lite::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -94,8 +94,8 @@ pub fn clean(raw: &str) -> String {
     let s = c.token.replace_all(&s, "[token]");
     let s = c.space.replace_all(&s, " ");
     let mut s = s.trim().to_owned();
-    if js_len(&s) > MESSAGE_MAX {
-        s = format!("{}…", js_prefix(&s, MESSAGE_MAX - 1));
+    if js::len(&s) > MESSAGE_MAX {
+        s = format!("{}…", js::prefix(&s, MESSAGE_MAX - 1));
     }
     if s.is_empty() {
         "no detail given".to_owned()
@@ -199,25 +199,6 @@ pub fn public_reasons(failures: &[StepFailure]) -> Vec<StepFailure> {
         .collect()
 }
 
-/// A string's length as JavaScript's `.length` counts it (UTF-16 code units).
-pub fn js_len(s: &str) -> usize {
-    s.encode_utf16().count()
-}
-
-/// `s.slice(0, n)` in UTF-16 code units. A cut that would split a surrogate
-/// pair stops before it (JavaScript would keep half of the pair).
-pub fn js_prefix(s: &str, n: usize) -> &str {
-    let mut units = 0;
-    for (i, ch) in s.char_indices() {
-        let w = ch.len_utf16();
-        if units + w > n {
-            return &s[..i];
-        }
-        units += w;
-    }
-    s
-}
-
 /// The Worker log (`console.warn` / `console.error`). Under `cargo test` each
 /// line is kept on the test's own thread so a test can assert what was logged.
 pub mod console {
@@ -316,7 +297,7 @@ mod tests {
     #[test]
     fn keeps_a_message_to_one_bounded_line_and_never_empty() {
         assert_eq!(clean("a\n\n  b"), "a b");
-        assert_eq!(js_len(&clean(&"word ".repeat(300))), MESSAGE_MAX);
+        assert_eq!(js::len(&clean(&"word ".repeat(300))), MESSAGE_MAX);
         assert_eq!(clean(""), "no detail given");
         assert_eq!(clean("kv down"), "kv down");
         assert_eq!(
@@ -375,13 +356,5 @@ mod tests {
         let f = from_body(FailureStep::AiGateway, 400, &body.to_string());
         assert_eq!(f.code, Some(json!(7)));
         assert_eq!(f.message, "m");
-    }
-
-    #[test]
-    fn utf16_lengths_count_as_javascript_does() {
-        assert_eq!(js_len("a\u{1F600}"), 3);
-        assert_eq!(js_prefix("ab\u{1F600}c", 3), "ab");
-        assert_eq!(js_prefix("ab\u{1F600}c", 4), "ab\u{1F600}");
-        assert_eq!(js_prefix("abc", 10), "abc");
     }
 }

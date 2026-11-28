@@ -174,13 +174,9 @@ pub fn auth_failure(r: &AuthResult) -> Resp {
 // ---------------------------------------------------------------------------
 // JavaScript semantics the ports need to match exactly.
 
-fn is_js_space(c: char) -> bool {
-    c.is_whitespace() || c == '\u{feff}'
-}
-
-/// `String.prototype.trim`.
+/// `String.prototype.trim`: JavaScript's own whitespace set ([`crate::lang::js`]).
 pub(crate) fn js_trim(s: &str) -> &str {
-    s.trim_matches(is_js_space)
+    crate::lang::js::trim(s)
 }
 
 /// JavaScript truthiness of a JSON value.

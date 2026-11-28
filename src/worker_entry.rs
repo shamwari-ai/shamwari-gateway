@@ -2,15 +2,18 @@
 //! runtime. Everything it calls is plain Rust over [`Platform`].
 
 use crate::config::Config;
-use crate::http::Req;
+use crate::failure::console;
+use crate::http::{Req, Resp};
 use crate::platform::{HttpRequest, HttpResponse, Platform};
 use crate::router;
+use crate::types::SinkMessage;
 use js_sys::{Function, Reflect, JSON};
 use serde_json::Value;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use worker::{
-    event, AbortController, Context, Env, Fetch, Headers, Method, RequestInit, Response, Result,
+    event, AbortController, Context, Env, Fetch, Headers, MessageBatch, MessageExt, Method,
+    RequestInit, Response, Result, ScheduleContext, ScheduledEvent,
 };
 
 /// The Workers runtime behind [`Platform`].
@@ -253,11 +256,77 @@ async fn fetch(mut request: worker::Request, env: Env, _ctx: Context) -> Result<
         },
     )
     .await;
-    let out_headers = Headers::new();
+    to_response(res)
+}
+
+/// The runtime's `Response` for one of ours. A null-body status (204, 304,
+/// ...) is built with no body at all, as `new Response(null, ...)`: the
+/// runtime refuses one with a body, even an empty string. Headers are
+/// appended, never set, so a header a route repeats stays repeated.
+fn to_response(res: Resp) -> Result<Response> {
+    let headers = Headers::new();
     for (k, v) in &res.headers {
-        out_headers.set(k, v)?;
+        headers.append(k, v)?;
     }
-    Ok(Response::ok(res.body)?
+    let builder = Response::builder()
         .with_status(res.status)
-        .with_headers(out_headers))
+        .with_headers(headers);
+    Ok(if Resp::is_null_body_status(res.status) {
+        builder.empty()
+    } else {
+        builder.fixed(res.body.into_bytes())
+    })
+}
+
+/// The `shamwari-sink` consumer (TypeScript `queue`): drain the batch into
+/// Core, acknowledge what was settled, and fail the batch on a transient
+/// error so the queue retries what is left (five times, then the DLQ).
+///
+/// Not bound in wrangler.toml until the cutover: a queue has one consumer,
+/// and until then it is the TypeScript Worker.
+#[event(queue)]
+async fn queue(batch: MessageBatch<SinkMessage>, env: Env, _ctx: Context) -> Result<()> {
+    let platform = WorkerPlatform { env: env.clone() };
+    let cfg = config_from(&env);
+    let raw: Vec<_> = batch.raw_iter().collect();
+    let mut docs = Vec::with_capacity(raw.len());
+    let mut index = Vec::with_capacity(raw.len());
+    for (i, m) in raw.iter().enumerate() {
+        let parsed = JSON::stringify(&m.body())
+            .ok()
+            .and_then(|s| s.as_string())
+            .and_then(|s| serde_json::from_str::<SinkMessage>(&s).ok());
+        match parsed {
+            Some(doc) => {
+                docs.push(doc);
+                index.push(i);
+            }
+            // Core would refuse it as malformed (a permanent 400), and the
+            // TypeScript consumer parks such a document: acknowledged, with
+            // an identifier-free log line, never retried into the DLQ.
+            None => {
+                console::error("sink parked a document: status=400 error=unreadable_message");
+                m.ack();
+            }
+        }
+    }
+    let drained = crate::gateway::handle_queue(&platform, &cfg, &docs).await;
+    for i in &drained.acked {
+        if let Some(m) = index.get(*i).and_then(|j| raw.get(*j)) {
+            m.ack();
+        }
+    }
+    match drained.error {
+        Some(e) => Err(worker::Error::RustError(e)),
+        None => Ok(()),
+    }
+}
+
+/// The weekly degradation probe (TypeScript `scheduled`). No cron triggers it
+/// until the cutover, so the probe never runs twice a week.
+#[event(scheduled)]
+async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
+    let platform = WorkerPlatform { env: env.clone() };
+    let cfg = config_from(&env);
+    crate::gateway::handle_scheduled(&platform, &cfg).await;
 }

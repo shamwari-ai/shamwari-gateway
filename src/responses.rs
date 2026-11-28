@@ -25,13 +25,13 @@
 //! one of those is a 400 `invalid_request` naming the `param`, as "Errors"
 //! requires, rather than an answer that quietly ignored it.
 //!
-//! [`handle`] answers 501 until the wiring lands: [`handle_responses`] takes
-//! the caller's authentication (agent A's) as [`AuthGate`] and the chat
-//! handler as a function.
+//! The route is wired in [`crate::gateway::handle_open_responses`]:
+//! [`handle_responses`] takes the caller's authentication as [`AuthGate`] and
+//! the gateway's own chat path as a function.
 
-use crate::config::Config;
-use crate::failure::{console, from_error, js_len, public_reasons, FailureStep};
+use crate::failure::{console, from_error, public_reasons, FailureStep};
 use crate::http::{Req, Resp};
+use crate::lang::js;
 use crate::platform::Platform;
 use serde_json::{json, Map, Value};
 use std::future::Future;
@@ -60,7 +60,7 @@ pub fn error_response(
     kind: Option<&str>,
 ) -> Resp {
     let kind = kind.unwrap_or_else(|| known_error(status));
-    let mut r = Resp::json(
+    let mut r = Resp::json_compact(
         &json!({ "error": { "type": kind, "code": code, "message": message, "param": param } }),
         status,
     );
@@ -270,14 +270,14 @@ fn metadata_of(v: Option<&Value>) -> Result<Map<String, Value>, Resp> {
         ));
     }
     for (k, val) in m {
-        if js_len(k) > 64 {
+        if js::len(k) > 64 {
             return Err(invalid(
                 "metadata",
                 "metadata keys are at most 64 characters.",
             ));
         }
         match val {
-            Value::String(s) if js_len(s) <= 512 => {}
+            Value::String(s) if js::len(s) <= 512 => {}
             _ => {
                 return Err(invalid(
                     "metadata",
@@ -456,7 +456,7 @@ pub fn translate_request(body: &Value) -> Result<Translated, Resp> {
         if given(g(p))
             && !g(p)
                 .and_then(Value::as_str)
-                .is_some_and(|s| js_len(s) <= 64)
+                .is_some_and(|s| js::len(s) <= 64)
         {
             return Err(invalid(
                 p,
@@ -837,15 +837,11 @@ where
     let out = to_response(&chat_body, &t.echo, created_at, p.now_ms() / 1000, || {
         crate::sink::random_uuid(p).replace('-', "")
     });
-    let mut r = Resp::json(&out, 200);
+    let mut r = Resp::json_compact(&out, 200);
     if let Some(v) = res.header("idempotent-replayed").filter(|v| !v.is_empty()) {
         r.set_header("Idempotent-Replayed", v);
     }
     r
-}
-
-pub async fn handle<P: Platform>(_p: &P, _cfg: &Config, _req: &Req) -> Resp {
-    crate::router::not_ported("POST /v1/responses")
 }
 
 #[cfg(test)]

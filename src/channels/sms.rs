@@ -9,7 +9,7 @@
 //! plain ASCII so one curly quote does not push the message into UCS-2.
 
 use super::{ChannelAdapter, ChannelName, Inbound, Reply};
-use crate::failure::js_len;
+use crate::lang::js;
 use crate::model_router::Reach;
 use crate::types::Scope;
 use serde_json::{json, Value};
@@ -19,7 +19,7 @@ pub const SMS_MAX_CHARS: usize = 459;
 /// A non-empty string of at most `max` characters.
 fn str_field(v: Option<&Value>, max: usize) -> Option<String> {
     v.and_then(Value::as_str)
-        .filter(|s| !s.is_empty() && js_len(s) <= max)
+        .filter(|s| !s.is_empty() && js::len(s) <= max)
         .map(str::to_owned)
 }
 
