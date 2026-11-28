@@ -152,6 +152,21 @@ pub(crate) mod js {
         String::from_utf16_lossy(&units[..n])
     }
 
+    /// `s.slice(0, n)`, borrowed. A cut that would split a surrogate pair
+    /// stops before it (JavaScript would keep half of the pair), so the result
+    /// is never longer than `n` units and needs no replacement character.
+    pub fn prefix(s: &str, n: usize) -> &str {
+        let mut units = 0;
+        for (i, ch) in s.char_indices() {
+            let w = ch.len_utf16();
+            if units + w > n {
+                return &s[..i];
+            }
+            units += w;
+        }
+        s
+    }
+
     /// `a < b` on strings, as JavaScript's default sort compares them (by
     /// UTF-16 code units, not by UTF-8 bytes).
     pub fn cmp(a: &str, b: &str) -> std::cmp::Ordering {
@@ -248,6 +263,9 @@ pub(crate) mod js {
             assert_eq!(len("a\u{1F600}"), 3);
             assert_eq!(slice("abc", 2), "ab");
             assert_eq!(slice("ab", 9), "ab");
+            assert_eq!(prefix("ab\u{1F600}c", 3), "ab");
+            assert_eq!(prefix("ab\u{1F600}c", 4), "ab\u{1F600}");
+            assert_eq!(prefix("abc", 10), "abc");
             assert_eq!(trim("\u{FEFF} x \u{3000}"), "x");
             assert_eq!(trim("\u{85}x"), "\u{85}x");
             assert_eq!(encode_uri_component("a b/é"), "a%20b%2F%C3%A9");

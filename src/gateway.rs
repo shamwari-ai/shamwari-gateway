@@ -59,7 +59,9 @@ use crate::sink::{
     conversation_doc, enqueue, extractive_usage_doc, is_pwa, iso_timestamp, random_uuid,
     retrieval_usage_doc, split_for_delivery, usage_event_doc, ConversationInput, UsageInput,
 };
-use crate::skills::{parse_skills, skills_need_own_information, with_skills, AppliedSkill, SKILLS_MAX};
+use crate::skills::{
+    parse_skills, skills_need_own_information, with_skills, AppliedSkill, SKILLS_MAX,
+};
 use crate::types::{AuthContext, GroundChunk, Message, Role};
 use serde_json::{json, Map, Value};
 
@@ -140,12 +142,7 @@ fn put_own_information(out: &mut Map<String, Value>, decision: &ScopeResolution,
 }
 
 /// `{ ...head, ...ownInformation(decision, g), ...tail }`, in that order.
-fn shamwari_block(
-    head: Value,
-    decision: &ScopeResolution,
-    g: &GroundResult,
-    tail: Value,
-) -> Value {
+fn shamwari_block(head: Value, decision: &ScopeResolution, g: &GroundResult, tail: Value) -> Value {
     let mut out = match head {
         Value::Object(m) => m,
         _ => Map::new(),
@@ -428,9 +425,9 @@ async fn extractive_response<P: Platform>(
 ) -> Resp {
     // r0 is SMS/USSD: typographic characters would force UCS-2 and turn three
     // segments into seven, so the text is plain there.
-    let max_chars = r
-        .reach
-        .map_or(EXTRACTIVE_MAX_CHARS, |x| policy().reach(x).extractive_max_chars);
+    let max_chars = r.reach.map_or(EXTRACTIVE_MAX_CHARS, |x| {
+        policy().reach(x).extractive_max_chars
+    });
     let built = extractive_answer(
         &r.g.chunks,
         max_chars,
@@ -540,7 +537,10 @@ pub async fn handle_chat<P: Platform>(p: &P, cfg: &Config, req: &Req) -> Handled
             400,
         ));
     };
-    if a.body.get("own_information").is_some_and(|v| !v.is_boolean()) {
+    if a.body
+        .get("own_information")
+        .is_some_and(|v| !v.is_boolean())
+    {
         return Ok(Resp::json(
             &json!({ "error": "invalid_own_information", "allowed": [true, false] }),
             400,
@@ -628,7 +628,10 @@ pub async fn handle_chat<P: Platform>(p: &P, cfg: &Config, req: &Req) -> Handled
         }
         Begin::InProgress => {
             return Ok(with_header(
-                Resp::json(&json!({ "error": "request_in_progress", "retry": true }), 409),
+                Resp::json(
+                    &json!({ "error": "request_in_progress", "retry": true }),
+                    409,
+                ),
                 "retry-after",
                 "2",
             ))
@@ -763,10 +766,15 @@ impl<P: Platform> Chat<'_, P> {
             // above returned the cited passage).
             content: with_skills(&g.system_prompt, self.skills),
         }];
-        to_model.extend(a.messages.iter().filter(|m| m.role != Role::System).cloned());
-        let max_tokens = self
-            .reach
-            .map_or(DEFAULT_MAX_OUTPUT_TOKENS, |r| policy().reach(r).max_output_tokens);
+        to_model.extend(
+            a.messages
+                .iter()
+                .filter(|m| m.role != Role::System)
+                .cloned(),
+        );
+        let max_tokens = self.reach.map_or(DEFAULT_MAX_OUTPUT_TOKENS, |r| {
+            policy().reach(r).max_output_tokens
+        });
         let meta = RequestMetadata {
             tier: target.tier,
             scope: a.decision.scope,

@@ -66,7 +66,6 @@ pub fn list_response(cfg: &Config) -> Resp {
     Resp::json(&model_list(cfg), 200)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

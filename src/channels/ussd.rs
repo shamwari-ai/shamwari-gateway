@@ -6,7 +6,7 @@
 //! question's answer closes it. A screen holds about 182 characters.
 
 use super::{ChannelAdapter, ChannelName, Inbound, Reply};
-use crate::failure::js_len;
+use crate::lang::js;
 use crate::model_router::Reach;
 use crate::types::Scope;
 use serde_json::{json, Value};
@@ -17,7 +17,7 @@ fn parse(body: &Value) -> Option<Inbound> {
     let field = |k: &str, max: usize| {
         body.get(k)
             .and_then(Value::as_str)
-            .filter(|s| !s.is_empty() && js_len(s) <= max)
+            .filter(|s| !s.is_empty() && js::len(s) <= max)
             .map(str::to_owned)
     };
     let id = field("sessionId", 128)?;

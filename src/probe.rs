@@ -12,7 +12,8 @@
 
 use crate::ai_gateway::{via_gateway, via_workers_ai, InferenceResult, RequestMetadata};
 use crate::config::Config;
-use crate::failure::{console, js_prefix};
+use crate::failure::console;
+use crate::lang::js;
 use crate::model_router::{targets, tier_name, DEFAULT_MAX_OUTPUT_TOKENS};
 use crate::platform::Platform;
 use crate::sink::{enqueue, iso_timestamp, random_uuid};
@@ -82,7 +83,7 @@ fn timed(
             ok: false,
             latency_ms,
             served: None,
-            error: Some(js_prefix(&format!("Error: {e}"), 300).to_owned()),
+            error: Some(js::prefix(&format!("Error: {e}"), 300).to_owned()),
         },
     }
 }

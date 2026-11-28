@@ -13,7 +13,7 @@
 //! not be editable without a code review.
 
 use crate::config::Config;
-use crate::failure::js_len;
+use crate::lang::js;
 use crate::types::{LicenseClass, Message, Tier};
 use serde_json::Value;
 use std::fmt;
@@ -432,7 +432,7 @@ pub fn route_with(
         .map(|m| m.content.as_str())
         .collect::<Vec<_>>()
         .join(" ");
-    if js_len(&text) > esc.max_total_chars || messages.len() > esc.max_messages {
+    if js::len(&text) > esc.max_total_chars || messages.len() > esc.max_messages {
         return t.get(esc.tier).clone();
     }
 

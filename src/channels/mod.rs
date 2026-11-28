@@ -27,8 +27,9 @@
 //! [`handle_channel`].
 
 use crate::config::Config;
-use crate::failure::{console, js_len, js_prefix};
+use crate::failure::console;
 use crate::http::{Req, Resp};
+use crate::lang::js;
 use crate::model_router::Reach;
 use crate::types::Scope;
 use hmac::{Hmac, KeyInit, Mac};
@@ -234,7 +235,7 @@ pub fn compose(
         if s.is_empty() {
             0
         } else {
-            js_len(s) as i64 + 1
+            js::len(s) as i64 + 1
         }
     };
     let room = (max_chars as i64 - used(&src) - used(&note)).max(20) as usize;
@@ -317,7 +318,7 @@ where
         return json_resp(&json!({ "error": "too_large" }), 413);
     }
     let raw = &req.body;
-    if js_len(raw) > MAX_BODY_BYTES {
+    if js::len(raw) > MAX_BODY_BYTES {
         return json_resp(&json!({ "error": "too_large" }), 413);
     }
     if !hmac_ok(secret, raw, req.header("x-signature")) {
@@ -345,7 +346,7 @@ where
         return json_resp(&(adapter.render)(&greeting), 200);
     }
 
-    let text = js_prefix(inbound.text.trim(), MAX_INPUT_CHARS);
+    let text = js::prefix(js::trim(&inbound.text), MAX_INPUT_CHARS);
     if text.is_empty() {
         return reply(messages::EMPTY);
     }
@@ -422,7 +423,6 @@ where
     ))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::sms::{SMS, SMS_MAX_CHARS};
@@ -454,13 +454,13 @@ mod tests {
         while t.contains("\n\n\n") {
             t = t.replace("\n\n\n", "\n\n");
         }
-        if js_len(&t) <= max {
+        if js::len(&t) <= max {
             return t;
         }
-        let cut = js_prefix(&t, max.saturating_sub(js_len(ellipsis)));
+        let cut = js::prefix(&t, max.saturating_sub(js::len(ellipsis)));
         let at = cut.rfind(' ').max(cut.rfind('\n'));
         let kept = match at {
-            Some(i) if (js_len(&cut[..i]) as f64) > max as f64 * 0.5 => &cut[..i],
+            Some(i) if (js::len(&cut[..i]) as f64) > max as f64 * 0.5 => &cut[..i],
             _ => cut,
         };
         format!("{}{ellipsis}", kept.trim_end())
