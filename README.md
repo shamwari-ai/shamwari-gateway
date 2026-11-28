@@ -7,7 +7,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?style=flat-square&logo=cloudflare&logoColor=white)
 
-**Default branch:** `scaffold` | **Code still lives in:** [`shamwari/gateway`](https://github.com/shamwari-ai/shamwari/tree/main/gateway) | **Docs:** [docs.shamwari.ai/architecture](https://docs.shamwari.ai/architecture)
+**Default branch:** `main` | **Code still lives in:** [`shamwari/gateway`](https://github.com/shamwari-ai/shamwari/tree/main/gateway) | **Docs:** [docs.shamwari.ai/architecture](https://docs.shamwari.ai/architecture)
 
 ---
 
@@ -15,12 +15,10 @@
 
 This repository will own the Shamwari edge gateway. It does not own it yet.
 
-`scaffold` — the default branch, and the one you are reading — holds a
-licence, CI wiring and this file. `main` is deliberately empty so the
-extraction can `git subtree split -P gateway` out of
-[`shamwari`](https://github.com/shamwari-ai/shamwari) and push history
-straight in without a merge or a force. Merge `scaffold` **after** that
-import lands.
+`main` is the default branch and holds a licence, CI wiring and this file.
+The code is not here yet: the extraction will `git subtree split -P gateway` out of
+[`shamwari`](https://github.com/shamwari-ai/shamwari) and merge that history
+into `main`.
 
 The Worker itself is written, typechecked and tested in the monorepo, and is
 **not deployed**.
