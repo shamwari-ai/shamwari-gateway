@@ -1,0 +1,115 @@
+{
+  "name": "shamwari",
+  "elements": [
+    {
+      "id": "START",
+      "type": "start",
+      "outputs": {
+        "next": {
+          "elementId": "budget_month"
+        }
+      }
+    },
+    {
+      "id": "budget_month",
+      "type": "rate",
+      "properties": {
+        "limitType": "cost",
+        "key": "metadata.owner_entity_id",
+        "limit": 50,
+        "window": 2592000
+      },
+      "outputs": {
+        "success": {
+          "elementId": "tier_check"
+        },
+        "fallback": {
+          "elementId": "economy_glm"
+        }
+      }
+    },
+    {
+      "id": "tier_check",
+      "type": "conditional",
+      "properties": {
+        "conditions": {
+          "operator": "and",
+          "conditions": [
+            {
+              "field": "metadata.tier",
+              "operator": "eq",
+              "value": "standard"
+            }
+          ]
+        }
+      },
+      "outputs": {
+        "true": {
+          "elementId": "standard_glm"
+        },
+        "false": {
+          "elementId": "economy_glm"
+        }
+      }
+    },
+    {
+      "id": "standard_glm",
+      "type": "model",
+      "properties": {
+        "provider": "workers-ai",
+        "model": "@cf/zai-org/glm-5.3",
+        "timeout": 30000,
+        "retries": 1
+      },
+      "outputs": {
+        "success": {
+          "elementId": "END"
+        },
+        "fallback": {
+          "elementId": "economy_glm"
+        }
+      }
+    },
+    {
+      "id": "economy_glm",
+      "type": "model",
+      "properties": {
+        "provider": "workers-ai",
+        "model": "@cf/zai-org/glm-5.3",
+        "timeout": 20000,
+        "retries": 1
+      },
+      "outputs": {
+        "success": {
+          "elementId": "END"
+        },
+        "fallback": {
+          "elementId": "workers_ai"
+        }
+      }
+    },
+    {
+      "id": "workers_ai",
+      "type": "model",
+      "properties": {
+        "provider": "workers-ai",
+        "model": "@cf/zai-org/glm-5.3",
+        "timeout": 15000,
+        "retries": 0
+      },
+      "outputs": {
+        "success": {
+          "elementId": "END"
+        },
+        "fallback": {
+          "elementId": "END"
+        }
+      }
+    },
+    {
+      "id": "END",
+      "type": "end",
+      "outputs": {}
+    }
+  ]
+}
