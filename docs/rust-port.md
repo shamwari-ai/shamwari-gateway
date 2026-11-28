@@ -28,26 +28,26 @@ a deployed Worker and the cutover ([below](#the-cutover)).
 
 This Worker deploys as `shamwari-gateway-rs` on workers.dev only:
 
-|                           | TypeScript `shamwari-gateway` | Rust `shamwari-gateway-rs`                     |
-| ------------------------- | ----------------------------- | ---------------------------------------------- |
-| `api.shamwari.ai`         | yes                           | no                                             |
-| Weekly probe cron         | yes                           | no (handler built, no trigger)                 |
-| `shamwari-sink` consumer  | yes                           | no (handler built, not bound)                  |
-| Writes to `shamwari-sink` | yes                           | no (`SINK_ENABLED=false`)                      |
+|                           | TypeScript `shamwari-gateway` | Rust `shamwari-gateway-rs`     |
+| ------------------------- | ----------------------------- | ------------------------------ |
+| `api.shamwari.ai`         | yes                           | no                             |
+| Weekly probe cron         | yes                           | no (handler built, no trigger) |
+| `shamwari-sink` consumer  | yes                           | no (handler built, not bound)  |
+| Writes to `shamwari-sink` | yes                           | no (`SINK_ENABLED=false`)      |
 
 ## Routes
 
-| Route                       | Handler                                   | TypeScript                       | State |
-| --------------------------- | ----------------------------------------- | -------------------------------- | ----- |
-| `GET /health` (any method)  | `router.rs`                               | `index.ts`                       | done  |
-| `GET /v1/models`            | `gateway::handle_models`                  | `index.ts`, `models.ts`          | done  |
-| `POST /v1/ground/context`   | `gateway::handle_ground_context`          | `groundContext` in `index.ts`    | done  |
-| `POST /v1/chat/completions` | `gateway::handle_chat`                    | `worker.fetch` in `index.ts`     | done  |
-| `POST /v1/responses`        | `gateway::handle_open_responses`          | `responses.ts`                   | done  |
-| `POST /v1/channels/sms`     | `gateway::handle_sms`                     | `channels/channel.ts`, `sms.ts`  | done  |
-| `POST /v1/channels/ussd`    | `gateway::handle_ussd`                    | `channels/channel.ts`, `ussd.ts` | done  |
-| queue `shamwari-sink`       | `worker_entry::queue` → `sink::drain`     | `worker.queue`, `sink.ts`        | done  |
-| cron (weekly probe)         | `worker_entry::scheduled` → `probe::scheduled` | `worker.scheduled`, `probe.ts` | done  |
+| Route                       | Handler                                        | TypeScript                       | State |
+| --------------------------- | ---------------------------------------------- | -------------------------------- | ----- |
+| `GET /health` (any method)  | `router.rs`                                    | `index.ts`                       | done  |
+| `GET /v1/models`            | `gateway::handle_models`                       | `index.ts`, `models.ts`          | done  |
+| `POST /v1/ground/context`   | `gateway::handle_ground_context`               | `groundContext` in `index.ts`    | done  |
+| `POST /v1/chat/completions` | `gateway::handle_chat`                         | `worker.fetch` in `index.ts`     | done  |
+| `POST /v1/responses`        | `gateway::handle_open_responses`               | `responses.ts`                   | done  |
+| `POST /v1/channels/sms`     | `gateway::handle_sms`                          | `channels/channel.ts`, `sms.ts`  | done  |
+| `POST /v1/channels/ussd`    | `gateway::handle_ussd`                         | `channels/channel.ts`, `ussd.ts` | done  |
+| queue `shamwari-sink`       | `worker_entry::queue` → `sink::drain`          | `worker.queue`, `sink.ts`        | done  |
+| cron (weekly probe)         | `worker_entry::scheduled` → `probe::scheduled` | `worker.scheduled`, `probe.ts`   | done  |
 
 `router::dispatch` is the TypeScript `worker.fetch` (no CORS); `/v1/responses`
 and both channels call it again in-process for the chat path, as TypeScript
@@ -58,19 +58,19 @@ included.
 
 ## Modules
 
-| Rust                                                            | TypeScript                                                      | Port |
-| --------------------------------------------------------------- | --------------------------------------------------------------- | ---- |
-| `router.rs`                                                     | `index.ts` (dispatch, the top-level `catch`), `GET /health`     | done |
+| Rust                                                            | TypeScript                                                                          | Port |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---- |
+| `router.rs`                                                     | `index.ts` (dispatch, the top-level `catch`), `GET /health`                         | done |
 | `gateway.rs`                                                    | `index.ts` (`admit`, the chat and ground handlers, `citationsOf`, `ownInformation`) | done |
-| `auth.rs`, `keys.rs`, `workos.rs`                               | `auth.ts`, `keys.ts`, `workos.ts`                               | done |
-| `cors.rs`, `idempotency.rs`, `pricing.rs`                       | `cors.ts`, `idempotency.ts`, `pricing.ts`                       | done |
-| `scope.rs`, `personal.rs`, `lang.rs`                            | `scope.ts`, `personal.ts`, `lang.ts`                            | done |
-| `ground.rs`, `ground_store.rs`, `own_sites.rs`, `extractive.rs` | `ground.ts`, `ground-store.ts`, `own-sites.ts`, `extractive.ts` | done |
-| `models.rs`, `model_router.rs`, `ai_gateway.rs`                 | `models.ts`, `router.ts`, `gateway.ts`                          | done |
-| `envelope.rs`, `failure.rs`, `provenance.rs`, `skills.rs`       | `envelope.ts`, `failure.ts`, `provenance.ts`, `skills.ts`       | done |
-| `core.rs`, `sink.rs`, `probe.rs`                                | `core.ts`, `sink.ts`, `probe.ts`                                | done |
-| `responses.rs`, `channels/`                                     | `responses.ts`, `channels/`                                     | done |
-| `worker_entry.rs`                                               | `export default` (`fetch`, `queue`, `scheduled`)                | done |
+| `auth.rs`, `keys.rs`, `workos.rs`                               | `auth.ts`, `keys.ts`, `workos.ts`                                                   | done |
+| `cors.rs`, `idempotency.rs`, `pricing.rs`                       | `cors.ts`, `idempotency.ts`, `pricing.ts`                                           | done |
+| `scope.rs`, `personal.rs`, `lang.rs`                            | `scope.ts`, `personal.ts`, `lang.ts`                                                | done |
+| `ground.rs`, `ground_store.rs`, `own_sites.rs`, `extractive.rs` | `ground.ts`, `ground-store.ts`, `own-sites.ts`, `extractive.ts`                     | done |
+| `models.rs`, `model_router.rs`, `ai_gateway.rs`                 | `models.ts`, `router.ts`, `gateway.ts`                                              | done |
+| `envelope.rs`, `failure.rs`, `provenance.rs`, `skills.rs`       | `envelope.ts`, `failure.ts`, `provenance.ts`, `skills.ts`                           | done |
+| `core.rs`, `sink.rs`, `probe.rs`                                | `core.ts`, `sink.ts`, `probe.ts`                                                    | done |
+| `responses.rs`, `channels/`                                     | `responses.ts`, `channels/`                                                         | done |
+| `worker_entry.rs`                                               | `export default` (`fetch`, `queue`, `scheduled`)                                    | done |
 
 ## The two rules
 
@@ -122,7 +122,7 @@ From the wiring (this change):
   500 `internal_error`.
 - **The queue consumer** acknowledges a message whose body cannot be read as a
   sink message and logs `sink parked a document: status=400
-  error=unreadable_message` (no identifiers). TypeScript would send it to
+error=unreadable_message` (no identifiers). TypeScript would send it to
   Core, which refuses it as a 400, and park it the same way.
 - **String handling.** The trim in `auth.rs` (the bearer token, the price
   keys) and in the channels' input now uses JavaScript's whitespace set, so
@@ -195,7 +195,7 @@ When parity is clean on the two workers.dev Workers, in one pull request per
 repository, merged together:
 
 1. **Move the route.** Add `routes = [{ pattern = "api.shamwari.ai",
-   custom_domain = true }]` to `wrangler.toml` here, and remove the `routes`
+custom_domain = true }]` to `wrangler.toml` here, and remove the `routes`
    entry from `shamwari/gateway/wrangler.jsonc`.
 2. **Move the cron.** Add `[triggers] crons = ["0 6 * * 1"]` here and remove
    `triggers` from `wrangler.jsonc`, so the probe runs once a week, not twice.
