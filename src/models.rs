@@ -14,13 +14,12 @@
 //! alias is ours.
 //!
 //! The route authenticates like the rest of `/v1` (not metered, not
-//! quota-checked). Authentication is agent A's port, so [`handle`] answers
-//! 501 until the wiring calls [`list_response`] behind it.
+//! quota-checked): [`crate::gateway::handle_models`] authenticates, then
+//! answers [`list_response`].
 
 use crate::config::Config;
-use crate::http::{Req, Resp};
+use crate::http::Resp;
 use crate::model_router::{policy, targets, RoutingPolicy};
-use crate::platform::Platform;
 use crate::types::{LicenseClass, Tier};
 use serde_json::{json, Value};
 
@@ -67,9 +66,6 @@ pub fn list_response(cfg: &Config) -> Resp {
     Resp::json(&model_list(cfg), 200)
 }
 
-pub async fn handle<P: Platform>(_p: &P, _cfg: &Config, _req: &Req) -> Resp {
-    crate::router::not_ported("GET /v1/models")
-}
 
 #[cfg(test)]
 mod tests {

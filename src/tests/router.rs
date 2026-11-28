@@ -56,15 +56,3 @@ fn an_unknown_route_or_method_is_not_found() {
         assert_eq!(r.body_json()["error"], "not_found");
     }
 }
-
-#[test]
-fn a_route_not_ported_yet_says_so_and_calls_nothing() {
-    let p = FakePlatform::new();
-    let cfg = Config::default();
-    let r = block_on(handle(&p, &cfg, req("POST", "/v1/chat/completions")));
-    assert_eq!(r.status, 501);
-    assert_eq!(r.body_json()["error"], "not_implemented");
-    assert!(p.requests.borrow().is_empty());
-    assert!(p.ai_calls.borrow().is_empty());
-    assert!(p.queue.borrow().is_empty());
-}

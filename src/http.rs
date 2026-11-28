@@ -35,13 +35,34 @@ pub struct Resp {
 }
 
 impl Resp {
-    /// A JSON response, as the TypeScript gateway's `json(body, status)`.
+    /// A JSON response, as the TypeScript gateway's `json(body, status)`:
+    /// `JSON.stringify(body, null, 2)`, two-space indentation, which is what
+    /// `serde_json::to_string_pretty` writes byte for byte.
     pub fn json(body: &Value, status: u16) -> Self {
+        Self::with_json_body(
+            serde_json::to_string_pretty(body).unwrap_or_else(|_| body.to_string()),
+            status,
+        )
+    }
+
+    /// A JSON response written as `JSON.stringify(body)` with no indentation:
+    /// what `responses.ts`, `channels/channel.ts` and the compact envelope send.
+    pub fn json_compact(body: &Value, status: u16) -> Self {
+        Self::with_json_body(body.to_string(), status)
+    }
+
+    fn with_json_body(body: String, status: u16) -> Self {
         Resp {
             status,
             headers: vec![("content-type".into(), "application/json".into())],
-            body: body.to_string(),
+            body,
         }
+    }
+
+    /// Statuses whose response has no body (`new Response(null, ...)`): the
+    /// runtime refuses a body with them.
+    pub fn is_null_body_status(status: u16) -> bool {
+        matches!(status, 101 | 204 | 205 | 304)
     }
 
     pub fn header(&self, name: &str) -> Option<&str> {

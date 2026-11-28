@@ -22,14 +22,14 @@
 //! not in the chat request, the idempotency key, the stored conversation or a
 //! log line.
 //!
-//! [`handle_sms`] and [`handle_ussd`] answer 501 until the wiring passes the
-//! chat handler to [`handle_channel`].
+//! The routes are wired in [`crate::gateway::handle_sms`] and
+//! [`crate::gateway::handle_ussd`], which pass the gateway's own chat path to
+//! [`handle_channel`].
 
 use crate::config::Config;
 use crate::failure::{console, js_len, js_prefix};
 use crate::http::{Req, Resp};
 use crate::model_router::Reach;
-use crate::platform::Platform;
 use crate::types::Scope;
 use hmac::{Hmac, KeyInit, Mac};
 use serde_json::{json, Value};
@@ -246,8 +246,9 @@ pub fn compose(
         .join("\n")
 }
 
+/// `json()` in `channels/channel.ts`: `JSON.stringify(body)`, unindented.
 fn json_resp(body: &Value, status: u16) -> Resp {
-    Resp::json(body, status)
+    Resp::json_compact(body, status)
 }
 
 /// `Number(header ?? 0)`: blank is 0, anything unparseable is NaN (never too large).
@@ -421,13 +422,6 @@ where
     ))
 }
 
-pub async fn handle_sms<P: Platform>(_p: &P, _cfg: &Config, _req: &Req) -> Resp {
-    crate::router::not_ported("POST /v1/channels/sms")
-}
-
-pub async fn handle_ussd<P: Platform>(_p: &P, _cfg: &Config, _req: &Req) -> Resp {
-    crate::router::not_ported("POST /v1/channels/ussd")
-}
 
 #[cfg(test)]
 mod tests {
