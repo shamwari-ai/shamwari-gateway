@@ -42,25 +42,16 @@ a `404`.
 The queue handler drains the `shamwari-sink` queue into Core; the cron runs
 weekly (`0 6 * * 1`).
 
-## Hono is the plan, not the present
+## Rust, not Hono
 
-None of these routes render a page, which is why the plan is **Hono** and not
-Astro. Hono is Workers-native, adds no meaningful cold-start cost for three
-routes, and replaces the hand-rolled `if (url.pathname === ...)` chain with a
-route table that survives voice and image endpoints being added. It wraps only
-the `fetch` export; `queue` and `scheduled` are untouched by it.
-
-That migration has **not happened yet** — `gateway/src/index.ts` in the
-monorepo is still the pathname chain, and `hono` is not in its
-`package.json`. Per the suggested order in `docs/repo-split.md` the migration
-happens in the monorepo first, so a routing mistake is caught by the existing
-suite rather than surfacing as this repo's first bug.
-
-**Do not add Astro here.** See "What not to do" in the repo-split plan.
+The earlier plan to move the TypeScript Worker to Hono is superseded: the
+gateway is Rust (owner, 2026-11-28: anything backend is Rust). The route table
+lives in `src/router.rs`, and the `queue` and `scheduled` handlers in
+`src/worker_entry.rs`.
 
 ## Rule 1 lives here, twice
 
-`src/scope.ts` is the fail-fast half of the scope gate: personal-scope content
+`src/scope.rs` (ported from `src/scope.ts`) is the fail-fast half of the scope gate: personal-scope content
 never reaches a third-party inference provider, and a request that tries gets
 a `409` without burning a Core round trip. The authoritative half is
 `main.py::resolve_scope` in

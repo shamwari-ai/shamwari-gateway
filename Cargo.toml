@@ -1,6 +1,6 @@
 [package]
 name = "shamwari-gateway"
-version = "0.1.0"
+version = "0.1.5"
 edition = "2021"
 description = "The Shamwari edge gateway (api.shamwari.ai) on Cloudflare Workers, in Rust"
 repository = "https://github.com/shamwari-ai/shamwari-gateway"

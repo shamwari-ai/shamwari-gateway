@@ -14,10 +14,9 @@ WORKER_BUILD_VERSION="0.9.0"
 
 cd "$(dirname "$0")/.."
 
-# Workers Builds runs this twice in one container: once as the dashboard's
-# build command (`npm run build`, see package.json) and again when
-# `wrangler deploy` runs [build] from wrangler.toml. Skip the second run when
-# the sources are unchanged and the output is there.
+# Workers Builds can run this twice in one container (a dashboard build
+# command, then `wrangler deploy` running [build] from wrangler.toml). Skip the
+# second run when the sources are unchanged and the output is there.
 STAMP="build/.sources-hash"
 SOURCES_HASH="$(find src Cargo.toml Cargo.lock rust-toolchain.toml scripts/build-worker.sh -type f 2>/dev/null | LC_ALL=C sort | xargs shasum | shasum | cut -d' ' -f1)"
 if [ -f build/worker/shim.mjs ] && [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$SOURCES_HASH" ]; then

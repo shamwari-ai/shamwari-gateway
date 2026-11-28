@@ -64,12 +64,6 @@ jobs:
   secrets:
     uses: shamwari-ai/.github/.github/workflows/reusable-gitleaks.yml@main
 
-  codeql:
-    permissions:
-      contents: read
-      security-events: write
-    needs: detect
-    if: needs.detect.outputs.code == 'true'
-    uses: shamwari-ai/.github/.github/workflows/reusable-codeql.yml@main
-    with:
-      languages: '["rust", "actions"]'
+  # CodeQL runs from the repository's default setup (which detects Rust and
+  # Actions itself); an advanced-configuration job here is refused while that
+  # setup is on.
