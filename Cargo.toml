@@ -12,11 +12,17 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 base64 = "0.23.1"
+# Joins the own-sites searches and the Ground search, as the TypeScript Promise.all does.
+futures-util = { version = "0.3.34", default-features = false, features = ["alloc"] }
 getrandom = "0.4.3"
+# The Rule 1 rules (personal.rs) and the own-sites text handling, as the TypeScript regular expressions.
+regex = { version = "1.13.1", default-features = false, features = ["std", "unicode"] }
 rsa = { version = "0.10.0", features = ["pkcs1v15"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
 sha2 = "0.11.1"
+# NFKC (personal.rs) and NFKD (own_sites.rs), as the TypeScript String.prototype.normalize.
+unicode-normalization = "0.1.26"
 url = "2.5.9"
 
 [dev-dependencies]
