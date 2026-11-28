@@ -10,6 +10,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   # These tests are what cover the two rules that must not be broken:
   # personal scope never resolves to a cloud destination, and the premium
@@ -24,6 +27,9 @@ jobs:
     uses: shamwari-ai/.github/.github/workflows/reusable-gitleaks.yml@main
 
   codeql:
+    permissions:
+      contents: read
+      security-events: write
     uses: shamwari-ai/.github/.github/workflows/reusable-codeql.yml@main
     with:
       languages: '["javascript-typescript"]'
