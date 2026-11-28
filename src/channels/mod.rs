@@ -474,23 +474,29 @@ mod tests {
     };
     const NOTICE: &str = "Answered without your own information, from public sources only. It looks personal, so it was not sent to an AI model.";
 
-    /// The operator's shared secret for these tests: random each run, so the
-    /// repository holds no secret value (CodeQL rightly flags a literal one).
+    /// 16 random bytes, hex: test secrets are drawn each run, so the repository
+    /// holds no secret value (CodeQL rightly flags a literal one).
+    fn random_secret() -> String {
+        let mut b = [0u8; 16];
+        getrandom::fill(&mut b).expect("random bytes");
+        b.iter().map(|x| format!("{x:02x}")).collect()
+    }
+
+    /// The operator's shared secret for these tests, the same for the whole run.
     fn secret() -> &'static str {
         use std::sync::OnceLock;
         static S: OnceLock<String> = OnceLock::new();
-        S.get_or_init(|| {
-            let mut b = [0u8; 16];
-            getrandom::fill(&mut b).expect("random bytes");
-            b.iter().map(|x| format!("{x:02x}")).collect()
-        })
+        S.get_or_init(random_secret)
     }
 
-    /// A secret that is never the operator's: the real one with a byte changed.
+    /// A secret that is never the operator's: a second, independent draw.
     fn wrong_secret() -> String {
-        let s = secret();
-        let last = if s.ends_with('0') { '1' } else { '0' };
-        format!("{}{last}", &s[..s.len() - 1])
+        loop {
+            let s = random_secret();
+            if s != secret() {
+                return s;
+            }
+        }
     }
     const PHONE: &str = "+263771234567";
 
