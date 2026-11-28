@@ -14,10 +14,27 @@ permissions:
   contents: read
 
 jobs:
+  # This repo is a scaffold until the code is extracted into it. The code jobs
+  # below are skipped (not failed) while there is nothing to build or scan.
+  detect:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      code: ${{ steps.find.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: find
+        run: |
+          if [ -f package.json ]; then echo "code=true" >> "$GITHUB_OUTPUT"; else echo "code=false" >> "$GITHUB_OUTPUT"; fi
   # These tests are what cover the two rules that must not be broken:
   # personal scope never resolves to a cloud destination, and the premium
   # tier stays licenseClass 'restricted'.
   ci:
+    needs: detect
+    if: needs.detect.outputs.code == 'true'
     uses: shamwari-ai/.github/.github/workflows/reusable-ci-node-npm.yml@main
     with:
       typecheck-script: typecheck
@@ -30,6 +47,8 @@ jobs:
     permissions:
       contents: read
       security-events: write
+    needs: detect
+    if: needs.detect.outputs.code == 'true'
     uses: shamwari-ai/.github/.github/workflows/reusable-codeql.yml@main
     with:
       languages: '["javascript-typescript"]'
