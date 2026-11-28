@@ -1,0 +1,69 @@
+# The Rust gateway. It deploys as its OWN Worker, `shamwari-gateway-rs`, on
+# workers.dev only, beside the TypeScript `shamwari-gateway` that serves
+# api.shamwari.ai, so the two can be compared on real requests (parity).
+#
+# Until the cutover it has:
+# - no route (api.shamwari.ai stays on the TypeScript Worker);
+# - no cron (the weekly probe would run twice);
+# - no queue consumer (a queue has one consumer; the TypeScript one drains it);
+# - SINK_ENABLED = "false", so parity traffic never writes to shamwari-sink.
+# The cutover PR adds the route, the cron and the consumer, and removes them
+# from shamwari/gateway/wrangler.jsonc in the same change.
+name = "shamwari-gateway-rs"
+# workers-rs compiles to wasm32; worker-build writes the JS shim wrangler deploys.
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-08-01"
+account_id = "125a2dfbc21f76a25c980609609e8218"
+workers_dev = true
+preview_urls = false
+
+# `wrangler deploy` and `wrangler dev` run this first, including under
+# Cloudflare Workers Builds, whose image has no Rust: the script installs
+# rustup, the toolchain rust-toolchain.toml pins and a pinned worker-build.
+[build]
+command = "bash scripts/build-worker.sh"
+watch_dir = ["src", "Cargo.toml", "Cargo.lock"]
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[ai]
+binding = "AI"
+
+[[kv_namespaces]]
+binding = "AUTH_CACHE"
+id = "aef87f10881e4ba99f68045026ce18b1"
+
+[[secrets_store_secrets]]
+binding = "CF_AIG_TOKEN"
+store_id = "56f84bfa8a564c54a95dbf4f4b4281b4"
+secret_name = "NYUCHI_AI_GATEWAY_TOKEN"
+
+[[queues.producers]]
+binding = "SINK"
+queue = "shamwari-sink"
+
+# The same public values as shamwari/gateway/wrangler.jsonc. Secrets
+# (SHAMWARI_CORE_TOKEN, SERVERS_API_TOKEN, SERVERS_API_INTERNAL_KEY,
+# CHANNEL_WEBHOOK_SECRET, CHANNEL_API_KEY) are set on the Worker, never here.
+[vars]
+CF_ACCOUNT_ID = "125a2dfbc21f76a25c980609609e8218"
+CF_GATEWAY_ID = "shamwari"
+CF_ROUTE_NAME = "shamwari"
+CORE_URL = "https://shamwari-core.fly.dev"
+NYUCHI_API_URL = "https://api.nyuchi.com"
+OWN_SITES = "on"
+EMBEDDING_MODEL = "@cf/baai/bge-m3"
+GROUND_TOP_K = "6"
+AUTH_CACHE_TTL = "60"
+CORS_ORIGINS = "https://shamwari.ai"
+ECONOMY_MODEL = "@cf/zai-org/glm-5.3"
+STANDARD_MODEL = "@cf/zai-org/glm-5.3"
+SURFACE = "shamwari.ai"
+MIND_AVAILABLE = "false"
+SERVERS_API_ENABLED = "false"
+WORKOS_CLIENT_ID = "client_01M68PCT0T5ECHKDYH45ECT0GV,client_01KQBBSMQTSMTBN7HEC9KQBJC0"
+WORKOS_ISSUER = "https://auth.mukoko.com,https://auth.mukoko.com/user_management/client_01KQBBSMQTSMTBN7HEC9KQBJC0,https://accounts.mukoko.com,https://accounts.mukoko.com/user_management/client_01KQBBSMQTSMTBN7HEC9KQBJC0"
+WORKOS_MONTHLY_TOKEN_CAP = "1000000"
+SINK_ENABLED = "false"

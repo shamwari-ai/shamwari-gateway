@@ -28,27 +28,42 @@ jobs:
           persist-credentials: false
       - id: find
         run: |
-          if [ -f package.json ]; then echo "code=true" >> "$GITHUB_OUTPUT"; else echo "code=false" >> "$GITHUB_OUTPUT"; fi
-  # These tests are what cover the two rules that must not be broken:
-  # personal scope never resolves to a cloud destination, and the premium
-  # tier stays licenseClass 'restricted'.
-  ci:
+          if [ -f Cargo.toml ]; then echo "code=true" >> "$GITHUB_OUTPUT"; else echo "code=false" >> "$GITHUB_OUTPUT"; fi
+  # The gateway is Rust (workers-rs). These checks cover the two rules that
+  # must not be broken as the TypeScript tests port with the code: personal
+  # scope never resolves to a cloud destination, and only open-weight output
+  # with explicit consent may train Mind.
+  rust:
+    name: Rust (fmt, clippy, test, wasm32 build)
     needs: detect
     if: needs.detect.outputs.code == 'true'
-    uses: shamwari-ai/.github/.github/workflows/reusable-ci-node-npm.yml@main
-    with:
-      typecheck-script: typecheck
-      test-script: test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # rust-toolchain.toml pins the channel, components and the wasm target.
+      - name: Install the pinned Rust toolchain
+        run: rustup show
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: rustfmt
+        run: cargo fmt --check
+      - name: clippy (host)
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: clippy (wasm32)
+        run: cargo clippy --locked --target wasm32-unknown-unknown -- -D warnings
+      - name: Tests
+        run: cargo test --locked
+      # Runs wrangler.toml's [build] (scripts/build-worker.sh) and bundles the
+      # Worker, uploading nothing and needing no credential.
+      - name: Build the Worker as Cloudflare does (dry run)
+        run: npx --yes wrangler@4.166.0 deploy --dry-run --outdir "${RUNNER_TEMP}/worker-dry-run"
 
   secrets:
     uses: shamwari-ai/.github/.github/workflows/reusable-gitleaks.yml@main
 
-  codeql:
-    permissions:
-      contents: read
-      security-events: write
-    needs: detect
-    if: needs.detect.outputs.code == 'true'
-    uses: shamwari-ai/.github/.github/workflows/reusable-codeql.yml@main
-    with:
-      languages: '["javascript-typescript"]'
+  # CodeQL runs from the repository's default setup (which detects Rust and
+  # Actions itself); an advanced-configuration job here is refused while that
+  # setup is on.
