@@ -14,6 +14,7 @@
 //! 2. Only open-weight output with explicit consent may train Shamwari Mind
 //!    ([`provenance`]).
 
+pub mod ai_gateway;
 pub mod auth;
 pub mod channels;
 pub mod config;
