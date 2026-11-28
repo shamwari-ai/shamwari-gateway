@@ -480,12 +480,29 @@ mod tests {
     };
     const NOTICE: &str = "Answered without your own information, from public sources only. It looks personal, so it was not sent to an AI model.";
 
-    const SECRET: &str = "operator-shared-secret";
+    /// The operator's shared secret for these tests: random each run, so the
+    /// repository holds no secret value (CodeQL rightly flags a literal one).
+    fn secret() -> &'static str {
+        use std::sync::OnceLock;
+        static S: OnceLock<String> = OnceLock::new();
+        S.get_or_init(|| {
+            let mut b = [0u8; 16];
+            getrandom::fill(&mut b).expect("random bytes");
+            b.iter().map(|x| format!("{x:02x}")).collect()
+        })
+    }
+
+    /// A secret that is never the operator's: the real one with a byte changed.
+    fn wrong_secret() -> String {
+        let s = secret();
+        let last = if s.ends_with('0') { '1' } else { '0' };
+        format!("{}{last}", &s[..s.len() - 1])
+    }
     const PHONE: &str = "+263771234567";
 
     fn cfg() -> Config {
         Config {
-            channel_webhook_secret: Some(SECRET.into()),
+            channel_webhook_secret: Some(secret().into()),
             channel_api_key: Some("sk_shamwari_channel".into()),
             ..Default::default()
         }
@@ -559,7 +576,7 @@ mod tests {
     fn answers_a_signed_message_with_the_answer_and_its_source_inside_three_segments() {
         let (res, sent) = run(
             &SMS,
-            operator(&text_msg("m1"), SECRET, None),
+            operator(&text_msg("m1"), secret(), None),
             &cfg(),
             || ok(compact("Section 48 protects the right to life.")),
         );
@@ -577,7 +594,7 @@ mod tests {
             &SMS,
             operator(
                 &json!({ "id": "m4", "from": PHONE, "text": "  Do I have a right to life?  ", "scope": "personal", "reach": "r2" }),
-                SECRET,
+                secret(),
                 None,
             ),
             &cfg(),
@@ -610,9 +627,12 @@ mod tests {
     #[test]
     fn an_operator_retry_of_the_same_message_is_the_same_idempotency_key() {
         let key = |id: &str| {
-            let (_, sent) = run(&SMS, operator(&text_msg(id), SECRET, None), &cfg(), || {
-                ok(compact("ok"))
-            });
+            let (_, sent) = run(
+                &SMS,
+                operator(&text_msg(id), secret(), None),
+                &cfg(),
+                || ok(compact("ok")),
+            );
             sent[0].header("idempotency-key").unwrap().to_owned()
         };
         assert_eq!(key("dup"), key("dup"));
@@ -623,7 +643,7 @@ mod tests {
     fn the_reply_is_plain_ascii_so_one_curly_quote_cannot_force_ucs_2() {
         let (res, _) = run(
             &SMS,
-            operator(&text_msg("m2"), SECRET, None),
+            operator(&text_msg("m2"), secret(), None),
             &cfg(),
             || {
                 let mut c =
@@ -640,7 +660,7 @@ mod tests {
         let long = "word ".repeat(400);
         let (res, _) = run(
             &SMS,
-            operator(&text_msg("m3"), SECRET, None),
+            operator(&text_msg("m3"), secret(), None),
             &cfg(),
             || ok(compact(&long)),
         );
@@ -653,7 +673,7 @@ mod tests {
     fn a_spent_quota_is_a_short_message_not_a_500() {
         let (res, _) = run(
             &SMS,
-            operator(&text_msg("m5"), SECRET, None),
+            operator(&text_msg("m5"), secret(), None),
             &cfg(),
             || Ok(Resp::json(&json!({ "error": "quota_exceeded" }), 429)),
         );
@@ -667,7 +687,7 @@ mod tests {
     fn a_bad_signature_is_a_401_and_nothing_is_called() {
         let (res, sent) = run(
             &SMS,
-            operator(&text_msg("x1"), "wrong-secret", None),
+            operator(&text_msg("x1"), &wrong_secret(), None),
             &cfg(),
             || ok(json!({})),
         );
@@ -680,14 +700,14 @@ mod tests {
         for sig in ["", "zz", &"a".repeat(64)] {
             let (res, sent) = run(
                 &SMS,
-                operator(&text_msg("x2"), SECRET, Some(sig)),
+                operator(&text_msg("x2"), secret(), Some(sig)),
                 &cfg(),
                 || ok(json!({})),
             );
             assert_eq!(res.status, 401, "{sig}");
             assert!(sent.is_empty());
         }
-        let mut req = operator(&text_msg("x2"), SECRET, None);
+        let mut req = operator(&text_msg("x2"), secret(), None);
         req.headers.retain(|(k, _)| k != "x-signature");
         let (res, _) = run(&SMS, req, &cfg(), || ok(json!({})));
         assert_eq!(res.status, 401);
@@ -696,8 +716,8 @@ mod tests {
     #[test]
     fn a_signature_in_upper_case_hex_is_accepted() {
         let raw = text_msg("x9").to_string();
-        let sig = sign(SECRET, &raw).to_uppercase();
-        assert!(hmac_ok(SECRET, &raw, Some(&sig)));
+        let sig = sign(secret(), &raw).to_uppercase();
+        assert!(hmac_ok(secret(), &raw, Some(&sig)));
     }
 
     #[test]
@@ -716,7 +736,7 @@ mod tests {
                 ..cfg()
             },
         ] {
-            let (res, sent) = run(&SMS, operator(&text_msg("x3"), SECRET, None), &c, || {
+            let (res, sent) = run(&SMS, operator(&text_msg("x3"), secret(), None), &c, || {
                 ok(json!({}))
             });
             assert_eq!(res.status, 503);
@@ -729,16 +749,16 @@ mod tests {
     fn a_malformed_message_is_a_400_and_nothing_is_called() {
         let (res, sent) = run(
             &SMS,
-            operator(&json!({ "id": 1 }), SECRET, None),
+            operator(&json!({ "id": 1 }), secret(), None),
             &cfg(),
             || ok(json!({})),
         );
         assert_eq!(res.status, 400);
         assert_eq!(res.body_json()["error"], "invalid_message");
         assert!(sent.is_empty());
-        let mut req = operator(&json!({}), SECRET, None);
+        let mut req = operator(&json!({}), secret(), None);
         req.body = "{not json".into();
-        let sig = sign(SECRET, &req.body);
+        let sig = sign(secret(), &req.body);
         req.headers.retain(|(k, _)| k != "x-signature");
         req.headers.push(("x-signature".into(), sig));
         let (res, _) = run(&SMS, req, &cfg(), || ok(json!({})));
@@ -761,7 +781,7 @@ mod tests {
         assert!(sent.is_empty());
         let mut big = operator(
             &json!({ "id": "b", "from": PHONE, "text": "x".repeat(9000) }),
-            SECRET,
+            secret(),
             None,
         );
         big.headers.retain(|(k, _)| k != "content-length");
@@ -780,7 +800,7 @@ mod tests {
         };
         let (res, sent) = run(
             &personal,
-            operator(&text_msg("p1"), SECRET, None),
+            operator(&text_msg("p1"), secret(), None),
             &cfg(),
             || Ok(Resp::json(&json!("should not be reached"), 200)),
         );
@@ -799,7 +819,7 @@ mod tests {
     fn rule_1_the_chat_paths_scope_refusal_is_the_personal_message() {
         let (res, _) = run(
             &SMS,
-            operator(&text_msg("p3"), SECRET, None),
+            operator(&text_msg("p3"), secret(), None),
             &cfg(),
             || {
                 Ok(Resp::json(
@@ -819,7 +839,7 @@ mod tests {
             &USSD,
             operator(
                 &json!({ "sessionId": "s1", "msisdn": PHONE, "input": "" }),
-                SECRET,
+                secret(),
                 None,
             ),
             &cfg(),
@@ -839,7 +859,7 @@ mod tests {
             &USSD,
             operator(
                 &json!({ "sessionId": "s2", "msisdn": PHONE, "input": "Do I have a right to life?" }),
-                SECRET,
+                secret(),
                 None,
             ),
             &cfg(),
@@ -888,7 +908,7 @@ mod tests {
     fn a_message_still_in_flight_is_told_to_wait_not_that_its_question_was_personal() {
         let (res, _) = run(
             &SMS,
-            operator(&text_msg("inflight"), SECRET, None),
+            operator(&text_msg("inflight"), secret(), None),
             &cfg(),
             || {
                 Ok(Resp::json(
@@ -905,7 +925,7 @@ mod tests {
         console::take();
         let (res, _) = run(
             &SMS,
-            operator(&text_msg("t1"), SECRET, None),
+            operator(&text_msg("t1"), secret(), None),
             &cfg(),
             || Err("all inference paths failed".into()),
         );
@@ -919,7 +939,7 @@ mod tests {
         console::take();
         let (res, _) = run(
             &SMS,
-            operator(&text_msg("t2"), SECRET, None),
+            operator(&text_msg("t2"), secret(), None),
             &cfg(),
             || Ok(Resp::json(&json!({ "error": "invalid_api_key" }), 401)),
         );
@@ -941,7 +961,7 @@ mod tests {
         );
         let (res, _) = run(
             &SMS,
-            operator(&text_msg("g1"), SECRET, None),
+            operator(&text_msg("g1"), secret(), None),
             &cfg(),
             || ok(compact("Right to life \u{1F600} see [s.48] \u{20AC}")),
         );
@@ -991,7 +1011,7 @@ mod tests {
     fn an_empty_answer_or_an_empty_question_is_a_short_message() {
         let (res, _) = run(
             &SMS,
-            operator(&text_msg("e1"), SECRET, None),
+            operator(&text_msg("e1"), secret(), None),
             &cfg(),
             || ok(json!({ "answer": "" })),
         );
@@ -1000,7 +1020,7 @@ mod tests {
             &SMS,
             operator(
                 &json!({ "id": "e2", "from": PHONE, "text": "   " }),
-                SECRET,
+                secret(),
                 None,
             ),
             &cfg(),
