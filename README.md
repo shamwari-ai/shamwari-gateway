@@ -1,10 +1,10 @@
 # Shamwari Gateway
 
-> The Shamwari Cloud edge gateway — routed inference, grounded in Zimbabwean law and policy. TypeScript on Cloudflare Workers.
+> The Shamwari Cloud edge gateway — routed inference, grounded in Zimbabwean law and policy. Rust on Cloudflare Workers (workers-rs).
 
 [![Lint](https://github.com/shamwari-ai/shamwari-gateway/actions/workflows/lint.yml/badge.svg)](https://github.com/shamwari-ai/shamwari-gateway/actions/workflows/lint.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Rust](https://img.shields.io/badge/Rust-workers--rs-000000?style=flat-square&logo=rust&logoColor=white)
 ![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?style=flat-square&logo=cloudflare&logoColor=white)
 
 **Default branch:** `main` | **Code still lives in:** [`shamwari/gateway`](https://github.com/shamwari-ai/shamwari/tree/main/gateway) | **Docs:** [docs.shamwari.ai/architecture](https://docs.shamwari.ai/architecture)
@@ -13,15 +13,19 @@
 
 ## What it is
 
-This repository will own the Shamwari edge gateway. It does not own it yet.
+This repository is the Shamwari edge gateway, in Rust. It is being ported from
+the TypeScript Worker in
+[`shamwari/gateway`](https://github.com/shamwari-ai/shamwari/tree/main/gateway),
+which keeps serving `api.shamwari.ai` until every route here passes parity.
+See [docs/rust-port.md](docs/rust-port.md) for the plan, the module table and
+what each route needs before the cutover.
 
-`main` is the default branch and holds a licence, CI wiring and this file.
-The code is not here yet: the extraction will `git subtree split -P gateway` out of
-[`shamwari`](https://github.com/shamwari-ai/shamwari) and merge that history
-into `main`.
-
-The Worker itself is written, typechecked and tested in the monorepo, and is
-**not deployed**.
+```bash
+cargo test                      # every rule, on the host
+cargo clippy --all-targets -- -D warnings
+bash scripts/build-worker.sh    # the wasm32 Worker, as Cloudflare builds it
+npx wrangler dev                # run it locally
+```
 
 ## What it serves
 

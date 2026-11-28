@@ -1,0 +1,39 @@
+[package]
+name = "shamwari-gateway"
+version = "0.1.0"
+edition = "2021"
+description = "The Shamwari edge gateway (api.shamwari.ai) on Cloudflare Workers, in Rust"
+repository = "https://github.com/shamwari-ai/shamwari-gateway"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+base64 = "0.23.1"
+getrandom = "0.4.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+sha2 = "0.11.1"
+url = "2.5.9"
+
+[dev-dependencies]
+futures = { version = "0.3.34", features = ["executor"] }
+getrandom = { version = "0.4.3", features = ["sys_rng"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4.3", features = ["wasm_js"] }
+js-sys = "0.3.107"
+wasm-bindgen = "0.2.130"
+worker = "0.9.0"
+wasm-bindgen-futures = "0.4.57"
+futures-util = { version = "0.3.34", default-features = false, features = ["alloc"] }
+
+# Release builds are what ships: size matters (the Worker upload limit) and
+# panics are never recovered, so abort rather than carry unwinding tables.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
