@@ -17,6 +17,7 @@ futures-util = { version = "0.3.34", default-features = false, features = ["allo
 getrandom = "0.4.3"
 # The Rule 1 rules (personal.rs) and the own-sites text handling, as the TypeScript regular expressions.
 regex = { version = "1.13.1", default-features = false, features = ["std", "unicode"] }
+rsa = { version = "0.10.0", features = ["pkcs1v15"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
 sha2 = "0.11.1"
@@ -43,3 +44,14 @@ opt-level = "s"
 lto = true
 codegen-units = 1
 panic = "abort"
+
+# RSA key generation in the WorkOS tests is unusably slow unoptimised. Only the
+# big-integer crates are optimised, so the rest of the dev build stays fast.
+[profile.dev.package.crypto-bigint]
+opt-level = 3
+
+[profile.dev.package.crypto-primes]
+opt-level = 3
+
+[profile.dev.package.rsa]
+opt-level = 3
